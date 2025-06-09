@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from ks_trade_api.base_fundamental_api import BaseFundamentalApi
 from ks_trade_api.utility import extract_vt_symbol, generate_vt_symbol
-from ks_trade_api.constant import Exchange, SubExchange, RET_OK, RET_ERROR, Product, RetCode
+from ks_trade_api.constant import Exchange, RET_OK, RET_ERROR, Product, RetCode
 from ks_utility.datetimes import get_date_str
 from ks_utility import datetimes
 from ks_utility.datetimes import DATE_FMT
@@ -89,6 +89,13 @@ class MyExchange(Enum):
     O = 'O'
     A = 'A'
     F = 'F'
+    
+    DCE = 'DCE'
+    SHF = 'SHF'
+    CZC = 'CZC'
+    GFE = 'GFE'
+    INE = 'INE'
+    CFE = 'CFE'
 
 EXCHANGE2MY_CURRENCY = {
     Exchange.SSE: MyCurrency.CNY,
@@ -98,36 +105,34 @@ EXCHANGE2MY_CURRENCY = {
     Exchange.SMART: MyCurrency.USD
 }
 
-EXCHANGE_KS2MY = {
-    Exchange.SSE: MyExchange.SH,
-    Exchange.SZSE: MyExchange.SZ,
-    Exchange.SEHK: MyExchange.HK,
-    Exchange.BSE: MyExchange.BJ
+# EXCHANGE_KS2MY = {
+#     Exchange.SSE: MyExchange.SH,
+#     Exchange.SZSE: MyExchange.SZ,
+#     Exchange.SEHK: MyExchange.HK,
+#     Exchange.BSE: MyExchange.BJ
+# }
+
+EXCHANGE_MY2KS = {
+    MyExchange.A: Exchange.AMEX,
+    MyExchange.O: Exchange.NASDAQ,
+    MyExchange.N: Exchange.NYSE,
+    MyExchange.F: Exchange.OTC,
+
+    MyExchange.SH: Exchange.SSE,
+    MyExchange.SZ: Exchange.SZSE,
+    MyExchange.BJ: Exchange.BSE,
+
+    MyExchange.HK: Exchange.SEHK,
+    
+    MyExchange.DCE: Exchange.DCE,
+    MyExchange.SHF: Exchange.SHFE,
+    MyExchange.CZC: Exchange.CZCE,
+    MyExchange.GFE: Exchange.GFEX,
+    MyExchange.INE: Exchange.INE,
+    MyExchange.CFE: Exchange.CFFEX
 }
-EXCHANGE_MY2KS = {v:k for k,v in EXCHANGE_KS2MY.items()}
-EXCHANGE_MY2KS[MyExchange.A] = Exchange.SMART
-EXCHANGE_MY2KS[MyExchange.O] = Exchange.SMART
-EXCHANGE_MY2KS[MyExchange.N] = Exchange.SMART
-EXCHANGE_MY2KS[MyExchange.F] = Exchange.SMART
 
-EXCHANGE_MY2KS_SUB = {
-    MyExchange.A: SubExchange.US_AMEX,
-    MyExchange.O: SubExchange.US_NASDAQ,
-    MyExchange.N: SubExchange.US_NYSE,
-    MyExchange.F: SubExchange.US_PINK,
-
-    MyExchange.SH: SubExchange.CN_SH,
-    MyExchange.SZ: SubExchange.CN_SZ,
-    MyExchange.BJ: SubExchange.CN_BJ,
-
-    MyExchange.HK: SubExchange.HK_MAINBOARD
-}
-
-EXCHANGE_KS2MY_SUB = {v:k for k,v in EXCHANGE_MY2KS_SUB.items()}
-EXCHANGE_KS2MY_SUB[SubExchange.CN_STIB] = MyExchange.SH
-EXCHANGE_KS2MY_SUB[SubExchange.HK_GEMBOARD] = MyExchange.HK
-EXCHANGE_KS2MY_SUB[SubExchange.HK_HKEX] = MyExchange.HK
-EXCHANGE_KS2MY_SUB[SubExchange.HK_MAINBOARD] = MyExchange.HK
+EXCHANGE_KS2MY = {v:k for k,v in EXCHANGE_MY2KS.items()}
 
 # 标准字段映射为东财字段(只有需要映射才需要定义，例如ROA就是对应ROA，不需映射)
 INDICATORS_KS2MY = {
@@ -208,7 +213,9 @@ EXCHANGE_PRODUCT2PUKEYCODE = {
 
     'CNSE.ETF': '507001',
     'SEHK.ETF': '404004',
-    'SMART.ETF': '202003009'
+    'SMART.ETF': '202003009',
+    
+    'CNFE.FUTURES': '715001'
 }
 
 STATEMENT_EXCHANGE2ITEMS_CODE = {
@@ -227,15 +234,23 @@ def extract_my_symbol(my_symbol):
         exchange = np.nan
     return '.'.join(items[:-1]), exchange
 
-def symbol_ks2my(vt_symbol: str, sub_exchange: SubExchange = None):
+def symbol_ks2my(vt_symbol: str, sub_exchange: Exchange = None):
     if not vt_symbol:
         return ''
     symbol, ks_exchange = extract_vt_symbol(vt_symbol)
     symbol = symbol.replace('.', '_')
+    
+    # 把KS期货的代码转为东财的标准格式
+    if sub_exchange in [Exchange.SHFE, Exchange.DCE, Exchange.CZCE, Exchange.GFEX, Exchange.INE, Exchange.CFFEX]:
+        suffix = 'M' if sub_exchange in [Exchange.INE, Exchange.CFFEX] else '0'
+        if symbol[-2:] in ['L8']:
+            symbol = symbol[:-2] + suffix
+        symbol = symbol
+    
     if not sub_exchange:
         my_symbol = generate_vt_symbol(symbol, EXCHANGE_KS2MY.get(ks_exchange))
     else:
-        my_symbol = generate_vt_symbol(symbol, EXCHANGE_KS2MY_SUB.get(sub_exchange))
+        my_symbol = generate_vt_symbol(symbol, EXCHANGE_KS2MY.get(sub_exchange))
     return my_symbol
 
 def symbol_my2ks(my_symbol: str):
@@ -243,17 +258,26 @@ def symbol_my2ks(my_symbol: str):
         return ''
     symbol, my_exchange = extract_my_symbol(my_symbol)
     symbol = symbol.replace('_', '.') # 东财使用下划线，而我们根据futu的用了.
+    
+    # 把期货的代码转为KS的标准格式
+    if my_exchange in [MyExchange.SHF, MyExchange.DCE, MyExchange.CZC, MyExchange.GFE, MyExchange.INE, MyExchange.CFE]:
+        matched = re.search(r'([a-zA-Z]+)([0-9a-zA-Z])', symbol)
+        assert matched
+        alphabet = matched.group(1)
+        date = matched.group(2)
+        # 主力连续合约
+        if date in ['0', 'm', 'M']:
+            date = 'L8'
+        symbol = f'{alphabet.upper()}{date}'
+    
     return generate_vt_symbol(symbol, EXCHANGE_MY2KS.get(my_exchange, Exchange.UNKNOW))
 
 def symbol_my2sub_exchange(my_symbol: str):
     if not my_symbol:
         return ''
     symbol, my_exchange = extract_my_symbol(my_symbol)
-    try:
-        EXCHANGE_MY2KS_SUB.get(my_exchange).value
-    except:
-        breakpoint()
-    return EXCHANGE_MY2KS_SUB.get(my_exchange).value
+    
+    return EXCHANGE_MY2KS.get(my_exchange).value
 
 # 用于mry，把为None的数据剔除，并且补齐性质
 def clean_group(indicators: list[str] = [], n: int = 3):
@@ -356,7 +380,7 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
         # if 'BPS' in indicators:
         #     options += f',CurType={EXCHANGE2MY_CURRENCY.get(exchange).value}'
 
-        my_symbols = [symbol_ks2my(x, SubExchange(sub_exchanges[i]) if len(sub_exchanges) and sub_exchanges[i] else None) for i,x in enumerate(vt_symbols)]
+        my_symbols = [symbol_ks2my(x, Exchange(sub_exchanges[i]) if len(sub_exchanges) and sub_exchanges[i] else None) for i,x in enumerate(vt_symbols)]
         df = c.css(my_symbols, indicators=indicators, options=options)
         if isinstance(df, c.EmQuantData):
             return RET_ERROR, str(df)
@@ -469,6 +493,17 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
             df['product'] = product.name
 
             all_df = pd.concat([all_df, df[['vt_symbol', 'name', 'sub_exchange', 'product']]], ignore_index=True)
+            
+        # 如果是期货，需要增加中金所支持，东财的主力连续期货只有商品期货
+        # if Product.FUTURES in products:
+        #     cf_df = c.sector('701001', tradedate, options)
+        #     cf_df['vt_symbol'] = cf_df['SECUCODE'].transform(symbol_my2ks)
+        #     cf_df['sub_exchange'] = cf_df['SECUCODE'].transform(symbol_my2sub_exchange)
+        #     cf_df['name'] = cf_df['SECURITYSHORTNAME']
+        #     cf_df['product'] = product.name
+        #     cf_df = cf_df[cf_df['name'].str.contains('主力连续')]
+        #     all_df = pd.concat([all_df, cf_df[['vt_symbol', 'name', 'sub_exchange', 'product']]], ignore_index=True)
+            
         return RET_OK, all_df
     
     def ctr(self, method: str, indicators: list[str], options: str = ''):
@@ -504,6 +539,17 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
         df['vt_symbol'] = df['SECUCODE'].transform(symbol_my2ks)
         
         return df
+    
+    def csd(self, vt_symbols: list[str], indicators: str = '', options: str = '', sub_exchanges: list[str] = []) -> tuple[RetCode, pd.DataFrame]:
+        my_symbols = [symbol_ks2my(x, Exchange(sub_exchanges[i]) if len(sub_exchanges) and sub_exchanges[i] else None) for i,x in enumerate(vt_symbols)]
+        
+        # 默认pandas返回
+        if not 'IsPandas' in options:
+            options += ',IsPandas=1'
+        
+        df = c.csd(codes=my_symbols, indicators=indicators, options=options)
+        return df
+        
 
     # 关闭上下文连接
     def close(self):
