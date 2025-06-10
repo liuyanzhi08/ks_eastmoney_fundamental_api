@@ -46,6 +46,16 @@ class Params(Enum):
     
 # 我们的标准字段
 class Indicator(Enum):
+    ## 行情字段
+    open = 'open'
+    high = 'high'
+    low = 'low'
+    close = 'close'
+    volume = 'volume'
+    turnover = 'turnover'
+    open_interest = 'open_interest'
+    
+    ## 财务字段
     ROE = 'ROE' # 净资产收益率
     ROA = 'ROA' # 总资产收益率
     LIBILITYTOASSET = 'LIBILITYTOASSET' # 资产负债率
@@ -202,9 +212,18 @@ INDICATORS_KS2MY = {
     'DIVIDENDYIELDTTM.BSE': 'DIVIDENDYIELDY',
     'DIVIDENDYIELDTTM.SEHK': 'DIVIDENDYIELDY',
     'DIVIDENDYIELDTTM.SMART': 'DIVIDENDYIELDY',
+    
+    ## 下面是行情的
+    Indicator.open.name: 'OPEN',
+    Indicator.high.name: 'HIGH',
+    Indicator.low.name: 'LOW',
+    Indicator.close.name: 'CLOSE',
+    Indicator.volume.name: 'VOLUME',
+    Indicator.turnover.name: 'AMOUNT',
+    Indicator.open_interest.name: 'HQOI'
 }
 
-INDICATORS_MY2KS = {v:'.'.join(k.split('.')[:-1]) for k,v in INDICATORS_KS2MY.items()}
+INDICATORS_MY2KS = {v:'.'.join(k.split('.')[:-1]) if '.' in k else k for k,v in INDICATORS_KS2MY.items()}
 
 EXCHANGE_PRODUCT2PUKEYCODE = {
     'CNSE.EQUITY': '001071',
@@ -242,7 +261,7 @@ def symbol_ks2my(vt_symbol: str, sub_exchange: Exchange = None):
     
     # 把KS期货的代码转为东财的标准格式
     if sub_exchange in [Exchange.SHFE, Exchange.DCE, Exchange.CZCE, Exchange.GFEX, Exchange.INE, Exchange.CFFEX]:
-        suffix = 'M' if sub_exchange in [Exchange.INE, Exchange.CFFEX] else '0'
+        suffix = 'M' if sub_exchange in [Exchange.INE, Exchange.CFFEX, Exchange.GFEX] else '0'
         if symbol[-2:] in ['L8']:
             symbol = symbol[:-2] + suffix
         symbol = symbol
@@ -540,14 +559,20 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
         
         return df
     
-    def csd(self, vt_symbols: list[str], indicators: str = '', options: str = '', sub_exchanges: list[str] = []) -> tuple[RetCode, pd.DataFrame]:
+    def csd(self, vt_symbols: list[str], indicators: str = '', start: str = '', end: str = '', options: str = '', sub_exchanges: list[str] = []) -> tuple[RetCode, pd.DataFrame]:
         my_symbols = [symbol_ks2my(x, Exchange(sub_exchanges[i]) if len(sub_exchanges) and sub_exchanges[i] else None) for i,x in enumerate(vt_symbols)]
         
         # 默认pandas返回
         if not 'IsPandas' in options:
             options += ',IsPandas=1'
         
-        df = c.csd(codes=my_symbols, indicators=indicators, options=options)
+        df = c.csd(codes=my_symbols, indicators=indicators, startdate=start, enddate=end, options=options)
+        df = df.reset_index(drop=False)
+        df['vt_symbol'] = df['CODES'].transform(symbol_my2ks)
+        df['datetime'] = pd.to_datetime(df['DATES']).dt.tz_localize('PRC')
+        rename_columns = {x: INDICATORS_MY2KS[x] for x in df.columns if x in INDICATORS_MY2KS}
+        df.rename(columns=rename_columns, inplace=True)
+        df.drop(columns=['CODES', 'DATES'], inplace=True)
         return df
         
 
