@@ -242,6 +242,128 @@ STATEMENT_EXCHANGE2ITEMS_CODE = {
     'CASHFLOWSTATEMENT.SMART': 28
 }
 
+#  EMI01709159 均价:氧化铝, EMM00195469 国内现货价格:批发价:苹果, EMI01763401 实物黄金:中国黄金:基础金价, EMI00240995 价格:15厘胶合板, EMI00546343 出厂价:顺丁橡胶(BR9000):独山子石化(中石油华北销售), EMI01639663 
+# 现货价格:石油沥青, EMI00000271 现货价:棉花:新疆
+SPOT_SYMBOL_KS2MY = {
+    'AL6': 'EMI01639685', #  豆一
+    'ADL6': 'EMI01778933', # 铸造铝合金
+    'AGL6': 'EMI01639662', # 白银
+    'ALL6': 'EMI01639656', # 沪铝
+    'AOL6': 'EMI01709159', # 氧化铝
+    'APL6': 'EMI01004652', # 苹果
+    'AUL6': 'EMI01639657', # 金
+    
+    # 大连交易所
+    'CL6': 'EM101629225', # 玉米
+    'AL6': 'EMI01629226', # 豆一
+    'YL6': 'EMI01629228', # 豆油
+    'PL6': 'EMI01629229', # 棕榈油
+    'LL6': 'EM01629230', # 聚乙烯(塑料)
+    'VL6': 'EMI01629231', # 聚氯乙烯(PVC)
+    'JL6': 'EMI01629232', # 焦炭
+    'PPL6': 'EMI01629233', # 聚丙烯
+    
+    # 郑商所
+    'WHL6': 'EMI01629211', # 强麦
+    'CFL6':'EMI01629212', # 棉花
+    'SRL6':'EMI01629213', # 白糖
+    'OIL6':'EMI01629214', # 菜籽油(菜油)
+    'MAL6':'EMI01629215', # 甲醇
+    
+    # 其他
+    'BRL6': 'EMI00546344', # 顺丁橡胶
+    'CJL6': 'EMI01907585', # 红枣
+    'CYL6': 'EMI01732836', # 棉纱
+    'EBL6': 'EMI01727409', # 苯乙烯
+    'EGL6': 'EMI00545410', # 乙二醇
+    'JMf6': 'EMI01871292', # 焦煤
+    'LCL6': 'EMI01814282', # 碳酸锂
+    'PRL6': 'EMI01886051', # 瓶片
+    'PSL6': 'EMI01774296', # 多晶硅
+    'SAL6': 'EMI01646351', # 纯碱
+    'SCL6': 'EMI00010844', # 原油
+    'SHL6': 'EMI01727410', # 烧碱
+    'SIL6': 'EMI01779627', # 工业硅
+    'SPL6': 'EMI01734555', # 纸浆
+    'SSL6': 'EMI01726944', # 不锈钢
+    'URL6': 'EMI01639189', # 尿素
+    
+    # 生意社
+    'CUL6': 'EMI01639653', # 铜
+    'RBL6': 'EMI01639654', # 螺纹钢
+    'ZNL6': 'EMI01639655', # 锌
+    'ALL6': 'EMI01639656', # 铝
+    'AUL6': 'EMI01639657', # 黄金
+    'WRL6': 'EMI01639658', # 线材
+    'RUL6': 'EMI01639660', # 天然橡胶
+    'PBL6': 'EMI01639661', # 铅
+    'AGL6': 'EMI01639662', # 白银
+    'BUL6': 'EMI01639663', # 石油沥青
+    'HCL6': 'EMI01639664', # 热卷
+    'NIL6': 'EMI01639665', # 镍
+    'SNL6': 'EMI01639666', # 锡
+    'TAL6': 'EMI01639667', # PTA
+    'SRL6': 'EMI01639668', # 白糖
+    'CFL6': 'EMI01639669', # 棉花
+    'PML6': 'EMI01639670', # 普麦
+    'OIL6': 'EMI01639671', # 菜油
+    'FGL6': 'EMI01814166', # 玻璃
+    'RML6': 'EMI01639674', # 菜粕
+    'RSL6': 'EMI01639675', # 菜籽
+    'SFL6': 'EMI01639678', # 硅铁
+    'SML6': 'EMI01639679', # 锰硅
+    'MAL6': 'EMI01639680', # 甲醇
+    'PL6': 'EMI01639682',  # 棕榈油
+    'VL6': 'EMI01639683',  # PVC
+    'LL6': 'EMI01639684',  # 聚乙烯
+    'AL6': 'EMI01639685',  # 豆一
+    'ML6': 'EMI01639686',  # 豆粕
+    'YL6': 'EMI01639687',  # 豆油
+    'CL6': 'EMI01639688',  # 玉米
+    'IL6': 'EMI01639691',  # 铁矿石
+    'JDL6': 'EMI01639692', # 鸡蛋
+    'PPL6': 'EMI01639695', # 聚丙烯
+    'CSL6': 'EMI01639696', # 玉米淀粉
+    
+    # 'AGL6': 'EMI01639662',
+    # 'AL6': 'EMI01639685',
+    # 'ALL6': 'EMI01639656',
+    # 'AOL6': 'EMI01709159',
+    # 'APL6': 'EMM00195469',
+    # 'AUL6': 'EMI01763401',
+    # 'BBL6': 'EMI00240995',
+    # 'BUL6': 'EMI01639663',
+    # 'CFL6': 'EMI01629212',
+    # 'CJL6': 'EMI01907585',
+    # 'CL6': 'EMI01775207',
+    # 'CSL6': 'EMI01773611',
+    # 'CUL6': 'EMI01732836',
+    # 'CYL6': 'EMI01755856',
+    # 'EGL6': 'EMI00545410',
+    # 'FGL6': 'EMI01819054',
+    # 'FUL6': 'EMI01711023',
+    # 'HCL6': 'EMI01809055',
+    # 'IL6': 'EMI00064807',
+    # 'JDL6': 'EMI01547110',
+    # 'JL6': 'EMI01629232',
+    # 'JML6': 'EMI01808710',
+    # 'LCL6': 'EMI01813613',
+    # 'LHL6': 'EMI01669879',
+    # 'LL6': 'EMI01629230',
+    # 'LRL6': 'EMI01627510',
+    # 'MAL6': 'EMI00545353',
+    # 'ML6': 'EMI01765340',
+    # 'NIL6': 'EMI01639665',
+    # 'PBL6': 'EMI01629219',
+    # 'PGL6': 'EMI01946149',
+    # 'PL6': 'EMI01765356',
+    # 'PML6': 'EMI01639670',
+    # 'PPL6': 'EMI01629233',
+    # 'PRL6': 'EMI01874023',
+    # 'PSL6': 'EMI01813883'
+}
+SPOT_SYMBOL_MY2KS = {v:k for k,v in SPOT_SYMBOL_KS2MY.items()}
+
 class CtrMethod(Enum):
     FundIHolderStockDetailInfo = 'FundIHolderStockDetailInfo'
 
@@ -265,6 +387,11 @@ def symbol_ks2my(vt_symbol: str, sub_exchange: Exchange = None):
         if symbol[-2:] in ['L8']:
             symbol = symbol[:-2] + suffix
         symbol = symbol
+    
+    # 现货属于edb，只有id没有交易所后缀
+    if ks_exchange in [Exchange.OTC]:
+        symbol = SPOT_SYMBOL_KS2MY.get(symbol, symbol)
+        return symbol
     
     if not sub_exchange:
         my_symbol = generate_vt_symbol(symbol, EXCHANGE_KS2MY.get(ks_exchange))
@@ -573,6 +700,35 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
         rename_columns = {x: INDICATORS_MY2KS[x] for x in df.columns if x in INDICATORS_MY2KS}
         df.rename(columns=rename_columns, inplace=True)
         df.drop(columns=['CODES', 'DATES'], inplace=True)
+        return df
+    
+    def edb(self, vt_symbols: list[str], options: str = '', sub_exchanges: list[str] = []) -> tuple[RetCode, pd.DataFrame]:
+        my_symbols = [symbol_ks2my(x, Exchange(sub_exchanges[i]) if len(sub_exchanges) and sub_exchanges[i] else None) for i,x in enumerate(vt_symbols)]
+        
+        # 默认pandas返回
+        if not 'IsPandas' in options:
+            options += ',IsPandas=1'
+        
+        df = c.edb(edbids=my_symbols, options=options)
+        try:
+            df = df.reset_index(drop=False)
+        except:
+            breakpoint()
+        df['symbol'] = df['CODES'].transform(lambda x: SPOT_SYMBOL_MY2KS.get(x))
+        df['exchange'] = sub_exchanges[0]
+        df['vt_symbol'] = df['symbol'] + '.' + df['exchange']
+        df['datetime'] = pd.to_datetime(df['DATES']).dt.tz_localize('PRC')
+
+        df.drop(columns=['CODES', 'DATES'], inplace=True)
+        
+        # 修正价格 有的是以斤和公斤的价格，交割以吨
+        df.loc[df.symbol.isin(['APL6']), 'RESULT'] = df[df.symbol.isin(['APL6'])]['RESULT'] * 1000
+        df.loc[df.symbol.isin(['CJL6']), 'RESULT'] = df[df.symbol.isin(['CJL6'])]['RESULT'] * 2000
+        df.loc[df.symbol.isin(['CYL6']), 'RESULT'] = df[df.symbol.isin(['CYL6'])]['RESULT'] * 2000
+        df.loc[df.symbol.isin(['JDL6']), 'RESULT'] = df[df.symbol.isin(['JDL6'])]['RESULT'] * 500
+        df.loc[df.symbol.isin(['PSL6']), 'RESULT'] = df[df.symbol.isin(['PSL6'])]['RESULT'] * 10000
+        df.loc[df.symbol.isin(['SHL6']), 'RESULT'] = df[df.symbol.isin(['SHL6'])]['RESULT'] / 0.32
+        
         return df
         
 

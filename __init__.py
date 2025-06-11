@@ -1,1 +1,1 @@
-from .ks_eastmoney_fundamental_api import KsEastmoneyFundamentalApi
+from .ks_eastmoney_fundamental_api import KsEastmoneyFundamentalApi, SPOT_SYMBOL_KS2MY
