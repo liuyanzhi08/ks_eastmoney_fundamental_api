@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from ks_trade_api.base_fundamental_api import BaseFundamentalApi
 from ks_trade_api.utility import extract_vt_symbol, generate_vt_symbol
-from ks_trade_api.constant import Exchange, RET_OK, RET_ERROR, Product, RetCode
+from ks_trade_api.constant import Exchange, RET_OK, RET_ERROR, Product, RetCode, SUB_EXCHANGE2EXCHANGE
 from ks_utility.datetimes import get_date_str
 from ks_utility import datetimes
 from ks_utility.datetimes import DATE_FMT
@@ -45,7 +45,7 @@ class Params(Enum):
     EndDate = 'EndDate'
     
 # 我们的标准字段
-class Indicator(Enum):
+class MarketIndicator(Enum):
     ## 行情字段
     open = 'open'
     high = 'high'
@@ -54,7 +54,8 @@ class Indicator(Enum):
     volume = 'volume'
     turnover = 'turnover'
     open_interest = 'open_interest'
-    
+
+class Indicator(Enum):    
     ## 财务字段
     ROE = 'ROE' # 净资产收益率
     ROA = 'ROA' # 总资产收益率
@@ -147,80 +148,58 @@ EXCHANGE_KS2MY = {v:k for k,v in EXCHANGE_MY2KS.items()}
 # 标准字段映射为东财字段(只有需要映射才需要定义，例如ROA就是对应ROA，不需映射)
 INDICATORS_KS2MY = {
     # ROE (chice面板上，沪深股票是ROEWA；港股是ROEAVG)
-    'ROE.SSE': 'ROEAVG',
-    'ROE.SZSE': 'ROEAVG',
-    'ROE.BSE': 'ROEAVG',
+    'ROE.CNSE': 'ROEAVG',
     'ROE.SEHK': 'ROEAVG',
     'ROE.SMART': 'ROEAVG',
     
-    'LIBILITYTOASSET.SSE': 'LIBILITYTOASSETRPT',
-    'LIBILITYTOASSET.SZSE': 'LIBILITYTOASSETRPT',
-    'LIBILITYTOASSET.BSE': 'LIBILITYTOASSETRPT',
+    'LIBILITYTOASSET.CNSE': 'LIBILITYTOASSETRPT',
     'LIBILITYTOASSET.SEHK': 'LIBILITYTOASSET',
     'LIBILITYTOASSET.SMART': 'LIBILITYTOASSET',
 
-    'DIVANNUPAYRATE.SSE': 'DIVANNUPAYRATE',
-    'DIVANNUPAYRATE.SZSE': 'DIVANNUPAYRATE',
-    'DIVANNUPAYRATE.BSE': 'DIVANNUPAYRATE',
+    'DIVANNUPAYRATE.CNSE': 'DIVANNUPAYRATE',
     'DIVANNUPAYRATE.SEHK': 'DIVANNUACCUMRATIO',
     'DIVANNUPAYRATE.SMART': 'DIVANNUACCUMRATIO',
 
-    'MV.SSE': 'MV',
-    'MV.SZSE': 'MV',
-    'MV.BSE': 'MV',
+    'MV.CNSE': 'MV',
     'MV.SEHK': 'MV',
     'MV.SMART': 'MV',
     
-    'CIRCULATEMV.SSE': 'CIRCULATEMV',
-    'CIRCULATEMV.SZSE': 'CIRCULATEMV',
-    'CIRCULATEMV.BSE': 'CIRCULATEMV',
+    'CIRCULATEMV.CNSE': 'CIRCULATEMV',
     'CIRCULATEMV.SEHK': 'LIQMV',
     'CIRCULATEMV.SMART': 'LIQMV',
 
-    'PE.SSE': 'PELYR',
-    'PE.SZSE': 'PELYR',
-    'PE.BSE': 'PELYR',
+    'PE.CNSE': 'PELYR',
     'PE.SEHK': 'PELYR',
     'PE.SMART': 'PELYR',
 
-    'PB.SSE': 'PBMRQ',
-    'PB.SZSE': 'PBMRQ',
-    'PB.BSE': 'PBMRQ',
+    'PB.CNSE': 'PBMRQ',
     'PB.SEHK': 'PBMRQ',
     'PB.SMART': 'PBMRQ',
     
-    'YOYOR.SSE': 'YOYOR',
-    'YOYOR.SZSE': 'YOYOR',
-    'YOYOR.BSE': 'YOYOR',
+    'YOYOR.CNSE': 'YOYOR',
     'YOYOR.SEHK': 'GR1YGROWTHRATE',
     'YOYOR.SMART': 'GR1YGROWTHRATE',
     
-    'CAGRTOR.SSE': 'CAGRGR',
-    'CAGRTOR.SZSE': 'CAGRGR',
-    'CAGRTOR.BSE': 'CAGRGR',
+    'CAGRTOR.CNSE': 'CAGRGR',
     'CAGRTOR.SEHK': 'CAGRGR',
     'CAGRTOR.SMART': 'CAGRGR',
     
-    'CASHFLOWSTATEMENT_NCFO.SSE': 'CASHFLOWSTATEMENT_39',
-    'CASHFLOWSTATEMENT_NCFO.SZSE': 'CASHFLOWSTATEMENT_39',
-    'CASHFLOWSTATEMENT_NCFO.BSE': 'CASHFLOWSTATEMENT_39',
+    'CASHFLOWSTATEMENT_NCFO.CNSE': 'CASHFLOWSTATEMENT_39',
     'CASHFLOWSTATEMENT_NCFO.SEHK': 'CASHFLOWSTATEMENT',
     'CASHFLOWSTATEMENT_NCFO.SMART': 'CASHFLOWSTATEMENT',
     
-    'DIVIDENDYIELDTTM.SSE': 'DIVIDENDYIELDY',
-    'DIVIDENDYIELDTTM.SZSE': 'DIVIDENDYIELDY',
-    'DIVIDENDYIELDTTM.BSE': 'DIVIDENDYIELDY',
+    'DIVIDENDYIELDTTM.CNSE': 'DIVIDENDYIELDY',
     'DIVIDENDYIELDTTM.SEHK': 'DIVIDENDYIELDY',
     'DIVIDENDYIELDTTM.SMART': 'DIVIDENDYIELDY',
     
     ## 下面是行情的
-    Indicator.open.name: 'OPEN',
-    Indicator.high.name: 'HIGH',
-    Indicator.low.name: 'LOW',
-    Indicator.close.name: 'CLOSE',
-    Indicator.volume.name: 'VOLUME',
-    Indicator.turnover.name: 'AMOUNT',
-    Indicator.open_interest.name: 'HQOI'
+    MarketIndicator.open.name: 'OPEN',
+    MarketIndicator.high.name: 'HIGH',
+    MarketIndicator.low.name: 'LOW',
+    MarketIndicator.close.name: 'CLOSE',
+    MarketIndicator.volume.name: 'VOLUME',
+    MarketIndicator.turnover.name: 'AMOUNT',
+    MarketIndicator.open_interest.name: 'HQOI'
 }
 
 INDICATORS_MY2KS = {v:'.'.join(k.split('.')[:-1]) if '.' in k else k for k,v in INDICATORS_KS2MY.items()}
@@ -394,7 +373,7 @@ def symbol_ks2my(vt_symbol: str, sub_exchange: Exchange = None):
         return symbol
     
     if not sub_exchange:
-        my_symbol = generate_vt_symbol(symbol, EXCHANGE_KS2MY.get(ks_exchange))
+        my_symbol = generate_vt_symbol(symbol, ks_exchange)
     else:
         my_symbol = generate_vt_symbol(symbol, EXCHANGE_KS2MY.get(sub_exchange))
     return my_symbol
@@ -416,7 +395,7 @@ def symbol_my2ks(my_symbol: str):
             date = 'L8'
         symbol = f'{alphabet.upper()}{date}'
     
-    return generate_vt_symbol(symbol, EXCHANGE_MY2KS.get(my_exchange, Exchange.UNKNOW))
+    return generate_vt_symbol(symbol, SUB_EXCHANGE2EXCHANGE.get(EXCHANGE_MY2KS.get(my_exchange, Exchange.UNKNOW)))
 
 def symbol_my2sub_exchange(my_symbol: str):
     if not my_symbol:
@@ -483,7 +462,6 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
             return None
         
         symbol, exchange = extract_vt_symbol(vt_symbols[0])
-        
         indicators = self._normalization_indicators_input(indicators, exchange)
 
         # 默认pandas返回
