@@ -73,6 +73,7 @@ class Indicator(Enum):
     NPMARGIN= 'NPMARGIN' # 净利率
     DIVIDENDYIELD = 'DIVIDENDYIELD' # 股息率
     DIVIDENDYIELDTTM = 'DIVIDENDYIELDTTM' # 股息率TTM
+    HOLDNUM = 'HOLDNUM' # 股东户数
     
     # 财务报表-利润表
     INCOMESTATEMENT_NI = 'CASHFLOWSTATEMENT_NI' # 净利润
@@ -199,6 +200,10 @@ INDICATORS_KS2MY = {
     'DIVIDENDYIELDTTM.CNSE': 'DIVIDENDTTM', # 最近12个月的股息率和股息率TTM不一样！！！ 港美目前只有12个月没有TTM
     'DIVIDENDYIELDTTM.SEHK': 'DIVIDENDYIELDY',
     'DIVIDENDYIELDTTM.SMART': 'DIVIDENDYIELDY',
+    
+    'HOLDNUM.CNSE': 'STMTHOLDTNUM',
+    'HOLDNUM.SEHK': '',
+    'HOLDNUM.SMART': '',
     
     ## 下面是行情的
     MarketIndicator.open.name: 'OPEN',
@@ -469,6 +474,7 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
         if not vt_symbols:
             return None
         
+        _indicators = indicators
         symbol, exchange = extract_vt_symbol(vt_symbols[0])
         indicators = self._normalization_indicators_input(indicators, exchange)
 
@@ -532,6 +538,14 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
         
         # 把None转为np.nan
         df = df.infer_objects(copy=False).fillna(np.nan)
+        
+        # 有的字段是没有数据的，例如港美的HOLDNUM，要填充NAN
+        # na_columns = [x for x in indicators_str if not x in cleaned.columns]
+        # for na_column in na_columns:
+        #     cleaned[na_column] = np.nan
+        for column in _indicators.split(','):
+            if column not in df.columns:
+                df[column] = np.nan
 
         return RET_OK, df
     
@@ -599,6 +613,7 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
             indicators_str = self._parse_indicators(indicators, typing=str)
             all_df = all_df.fillna(np.nan)
             cleaned = all_df.groupby('vt_symbol', group_keys=False).apply(clean_group(indicators=indicators_str, n=n))
+            
             table = cleaned.reset_index(drop=False).pivot(index='vt_symbol', columns='index', values=indicators_str)
             table.columns = [f"{col[0]}_MRY{col[1]}" for col in table.columns]
             table = table.loc[vt_symbols] # 按照传入的顺序组织顺组，因为pivot把顺序弄乱了
