@@ -76,10 +76,11 @@ class Indicator(Enum):
     HOLDNUM = 'HOLDNUM' # 股东户数
     
     # 财务报表-利润表
-    INCOMESTATEMENT_NI = 'CASHFLOWSTATEMENT_NI' # 净利润
+    INCOMESTATEMENT_NI = 'INCOMESTATEMENT_NI' # 净利润
     
     # 财务报表-现金流量表
     CASHFLOWSTATEMENT_NCFO = 'CASHFLOWSTATEMENT_NCFO' # 经营活动产生的现金流量净额
+    CASHFLOWSTATEMENT_CASHEND = 'CASHFLOWSTATEMENT_CASHEND' # 会计期末的现金及现金等价物余额
     
 
     
@@ -196,6 +197,10 @@ INDICATORS_KS2MY = {
     'CASHFLOWSTATEMENT_NCFO.CNSE': 'CASHFLOWSTATEMENT_39',
     'CASHFLOWSTATEMENT_NCFO.SEHK': 'CASHFLOWSTATEMENT',
     'CASHFLOWSTATEMENT_NCFO.SMART': 'CASHFLOWSTATEMENT',
+    
+    'CASHFLOWSTATEMENT_CASHEND.CNSE': 'CASHFLOWSTATEMENT_84',
+    'CASHFLOWSTATEMENT_CASHEND.SEHK': 'CASHEND',
+    'CASHFLOWSTATEMENT_CASHEND.SMART': 'CASHEND',
     
     'DIVIDENDYIELDTTM.CNSE': 'DIVIDENDTTM', # 最近12个月的股息率和股息率TTM不一样！！！ 港美目前只有12个月没有TTM
     'DIVIDENDYIELDTTM.SEHK': 'DIVIDENDYIELDY',
@@ -461,7 +466,7 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
 
     def _normalization_indicators_input(self, indicators: str, exchange: Exchange):
         indicators_list = indicators.split(',')
-        indicators_new = [INDICATORS_KS2MY.get(f'{x}.{exchange.value}', x) for x in indicators_list]
+        indicators_new = [INDICATORS_KS2MY.get(f'{x}.{exchange.value}', x) for x in indicators_list if INDICATORS_KS2MY.get(f'{x}.{exchange.value}', x)]
         return ','.join(indicators_new)
     
     def _normalization_indicators_output(self, df: DataFrame):
