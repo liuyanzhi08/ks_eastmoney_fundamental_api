@@ -558,6 +558,9 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
     css_mrq = css
     
     def _parse_options(self, options: str = '') -> dict:
+        if not options:
+            return {}
+        
         ret_options = {}
         for k,v in dict(x.strip().split('=') for x in options.split(',')).items():
             try:
@@ -590,6 +593,9 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
     def css_mry(self, vt_symbols: list[str], indicators: str = '', options: str = '', sub_exchanges: list[str] = []) -> pd.DataFrame:
         try:
             options = self._parse_options(options)
+            if not Params.MRYN in options:
+                return RET_ERROR, 'MRYN参数为空'
+            
             n = options[Params.MRYN]
             
             # 因为年报公布延迟，年初的时候没有当年和前一年的数据，所以要取N个数据必须是N+2年
