@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from ks_trade_api.base_fundamental_api import BaseFundamentalApi
 from ks_trade_api.utility import extract_vt_symbol, generate_vt_symbol
-from ks_trade_api.constant import Exchange, RET_OK, RET_ERROR, Product, RetCode, SUB_EXCHANGE2EXCHANGE
+from ks_trade_api.constant import Exchange, RET_OK, RET_ERROR, Product, RetCode, SUB_EXCHANGE2EXCHANGE, Currency
 from ks_utility.datetimes import get_date_str
 from ks_utility import datetimes
 from ks_utility.datetimes import DATE_FMT
@@ -115,11 +115,17 @@ class MyExchange(Enum):
     CFE = 'CFE'
 
 EXCHANGE2MY_CURRENCY = {
+    Exchange.CNSE: MyCurrency.CNY,
     Exchange.SSE: MyCurrency.CNY,
     Exchange.SZSE: MyCurrency.CNY,
     Exchange.BSE: MyCurrency.CNY,
+    
     Exchange.SEHK: MyCurrency.HKD,
-    Exchange.SMART: MyCurrency.USD
+    
+    Exchange.SMART: MyCurrency.USD,
+    Exchange.AMEX: MyCurrency.USD,
+    Exchange.NYSE: MyCurrency.USD,
+    Exchange.NASDAQ: MyCurrency.USD
 }
 
 # EXCHANGE_KS2MY = {
@@ -504,8 +510,8 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
             options += ',ReportDate=MRQ'
 
         if not 'CurType' in options:
-            # options += f',CurType={EXCHANGE2MY_CURRENCY.get(exchange).value}'
-            options += f',CurType=1' # 使用原始币种，港股-人民币
+            options += f',CurType={EXCHANGE2MY_CURRENCY.get(exchange).value}' 
+            # options += f',CurType=1' # 使用原始币种，港股-人民币。这中方式有个问题，例如PDD市值会是美元，但是财报是人民币
 
         if 'ROETTM' in indicators:
             options += ',TtmType=1'
