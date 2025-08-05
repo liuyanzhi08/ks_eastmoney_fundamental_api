@@ -116,6 +116,8 @@ class MyExchange(Enum):
     GFE = 'GFE'
     INE = 'INE'
     CFE = 'CFE'
+    
+    GI = 'GI' # 全球指数
 
 EXCHANGE2MY_CURRENCY = {
     Exchange.CNSE: MyCurrency.CNY,
@@ -128,7 +130,9 @@ EXCHANGE2MY_CURRENCY = {
     Exchange.SMART: MyCurrency.USD,
     Exchange.AMEX: MyCurrency.USD,
     Exchange.NYSE: MyCurrency.USD,
-    Exchange.NASDAQ: MyCurrency.USD
+    Exchange.NASDAQ: MyCurrency.USD,
+    
+    Exchange.GI: MyCurrency.USD # todo!!! 并不是所有GI都是美元
 }
 
 # EXCHANGE_KS2MY = {
@@ -155,7 +159,9 @@ EXCHANGE_MY2KS = {
     MyExchange.CZC: Exchange.CZCE,
     MyExchange.GFE: Exchange.GFEX,
     MyExchange.INE: Exchange.INE,
-    MyExchange.CFE: Exchange.CFFEX
+    MyExchange.CFE: Exchange.CFFEX,
+    
+    MyExchange.GI: Exchange.GI
 }
 
 EXCHANGE_KS2MY = {v:k for k,v in EXCHANGE_MY2KS.items()}
@@ -240,7 +246,10 @@ EXCHANGE_PRODUCT2PUKEYCODE = {
     'SEHK.ETF': '404004',
     'SMART.ETF': '202003009',
     
-    'CNFE.FUTURES': '715001'
+    'CNFE.FUTURES': '715001',
+    
+    'CNSE.INDEX': '905009001', # todo! 这里用了中证的规模指数，并不是所有A股指数
+    'INDEX.INDEX': '905013008', # todo! 这里用了全球重要指数，并不是所有A股指数
 }
 
 STATEMENT_EXCHANGE2ITEMS_CODE = {
@@ -388,7 +397,32 @@ def extract_my_symbol(my_symbol):
         exchange = np.nan
     return '.'.join(items[:-1]), exchange
 
-def symbol_ks2my(vt_symbol: str):
+def symbol_ks2my(vt_symbol: str, sub_exchange: Exchange = None):
+    if not vt_symbol:
+        return ''
+    symbol, ks_exchange = extract_vt_symbol(vt_symbol)
+    symbol = symbol.replace('.', '_')
+    
+    # 把KS期货的代码转为东财的标准格式
+    if sub_exchange in [Exchange.SHFE, Exchange.DCE, Exchange.CZCE, Exchange.GFEX, Exchange.INE, Exchange.CFFEX]:
+        suffix = 'M' if sub_exchange in [Exchange.INE, Exchange.CFFEX, Exchange.GFEX] else '0'
+        if symbol[-2:] in ['L8']:
+            symbol = symbol[:-2] + suffix
+        symbol = symbol
+    
+    # 现货属于edb，只有id没有交易所后缀
+    if ks_exchange in [Exchange.OTC]:
+        symbol = SPOT_SYMBOL_KS2MY.get(symbol, symbol)
+        return symbol
+    
+    if not sub_exchange:
+        my_symbol = generate_vt_symbol(symbol, ks_exchange)
+    else:
+        my_symbol = generate_vt_symbol(symbol, EXCHANGE_KS2MY.get(sub_exchange))
+    return my_symbol
+
+# todo! 没时间兼容，以后要统一移除sub_exchange 
+def symbol_ks2my1(vt_symbol: str):
     if not vt_symbol:
         return ''
     symbol, ks_exchange = extract_vt_symbol(vt_symbol)
@@ -411,6 +445,13 @@ def symbol_ks2my(vt_symbol: str):
     
     my_symbol = generate_vt_symbol(symbol, my_exchange)
     return my_symbol
+
+def symbol_sub_exchange2exchange(vt_symbols: list[str], sub_exchanges: str):
+    ret_symbols = []
+    for i, vt_symbol in enumerate(vt_symbols):
+        symbol, exchange = extract_vt_symbol(vt_symbols[i])
+        ret_symbols.append(f"{symbol}.{sub_exchanges[i]}")
+    return ret_symbols
 
 def symbol_my2ks(my_symbol: str):
     if not my_symbol:
@@ -483,7 +524,8 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
 
     def _normalization_indicators_input(self, indicators: str, exchange: Exchange):
         indicators_list = indicators.split(',')
-        indicators_new = [INDICATORS_KS2MY.get(f'{x}.{exchange.value}', x) for x in indicators_list if INDICATORS_KS2MY.get(f'{x}.{exchange.value}', x)]
+        top_exchange = SUB_EXCHANGE2EXCHANGE.get(exchange)
+        indicators_new = [INDICATORS_KS2MY.get(f'{x}.{top_exchange.value}', x) for x in indicators_list if INDICATORS_KS2MY.get(f'{x}.{top_exchange.value}', x)]
         return ','.join(indicators_new)
     
     def _normalization_indicators_output(self, df: DataFrame):
@@ -526,6 +568,10 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
 
         if 'ROETTM' in indicators:
             options += ',TtmType=1'
+        
+        #  指数需要增加DelType参数
+        if 'PETTM' in indicators:
+            options += ',DelType=1'
 
         if 'LIBILITYTOASSETRPT' in indicators:
             options += ',Type=3' # 合并报表（调整后）
@@ -644,7 +690,11 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
             
             table = cleaned.reset_index(drop=False).pivot(index='vt_symbol', columns='index', values=indicators_str)
             table.columns = [f"{col[0]}_MRY{col[1]}" for col in table.columns]
-            table = table.loc[vt_symbols] # 按照传入的顺序组织顺组，因为pivot把顺序弄乱了
+            
+            # 去除CNSE的抽象交易所方式
+            real_vt_symbols = symbol_sub_exchange2exchange(vt_symbols, sub_exchanges=sub_exchanges)
+            
+            table = table.loc[real_vt_symbols] # 按照传入的顺序组织顺组，因为pivot把顺序弄乱了
             table.reset_index(drop=False, inplace=True)
             return RET_OK, table
                 
@@ -661,12 +711,16 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
         all_df = pd.DataFrame()
         for product in products:
             pukeycode = EXCHANGE_PRODUCT2PUKEYCODE.get(f'{exchange.name}.{product.name}')
+            if not pukeycode:
+                continue
             df = c.sector(pukeycode, tradedate, options)
             df['vt_symbol'] = df['SECUCODE'].transform(symbol_my2ks)
             df['name'] = df['SECURITYSHORTNAME']
             df['product'] = product.name
+            df['min_volume'] = 1
+            df['size'] = 1
 
-            all_df = pd.concat([all_df, df[['vt_symbol', 'name', 'product']]], ignore_index=True)
+            all_df = pd.concat([all_df, df[['vt_symbol', 'name', 'product', 'min_volume', 'size']]], ignore_index=True)
             
         # 如果是期货，需要增加中金所支持，东财的主力连续期货只有商品期货
         # if Product.FUTURES in products:
@@ -715,7 +769,7 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
         return df
     
     def csd(self, vt_symbols: list[str], indicators: str = '', start: str = '', end: str = '', options: str = '', sub_exchanges: list[str] = []) -> tuple[RetCode, pd.DataFrame]:
-        my_symbols = [symbol_ks2my(x) for x in vt_symbols]
+        my_symbols = [symbol_ks2my1(x) for x in vt_symbols]
         
         # 默认pandas返回
         if not 'IsPandas' in options:

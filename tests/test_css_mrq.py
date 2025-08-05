@@ -11,7 +11,7 @@ import numpy as np
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fundamental_api", CONFIGS, indirect=True)
 async def test_css_mry(fundamental_api):
-    from ks_eastmoney_fundamental_api.ks_eastmoney_fundamental_api import Indicator
+    from ks_eastmoney_fundamental_api.ks_eastmoney_fundamental_api import Indicator, symbol_sub_exchange2exchange
     indicators = ','.join([x.value for x in list(Indicator) if not x == Indicator.HOLDNUM]) # 港股美股没有HOLDNUM，剔除，否则运行是空指标出错
     # indicators = 'CASHFLOWSTATEMENT_NCFO'
     test_css_mrq_samples = [
@@ -63,6 +63,7 @@ async def test_css_mry(fundamental_api):
                     options=options
                 )
                 for symbol_i, vt_symbol in enumerate(config['vt_symbols']):
+                    vt_symbol = symbol_sub_exchange2exchange([vt_symbol][0])
                     if np.isnan(my_df.loc[my_symbols[symbol_i], my_indicator]):
                         assert_debug(np.isnan(ks_df.loc[vt_symbol, f'{indicator_str}']))
                     else:

@@ -35,7 +35,7 @@ test_css_mry_samples = [
 @pytest.mark.asyncio
 @pytest.mark.parametrize("fundamental_api", CONFIGS, indirect=True)
 async def test_css_mry(fundamental_api):
-    from ks_eastmoney_fundamental_api.ks_eastmoney_fundamental_api import Indicator
+    from ks_eastmoney_fundamental_api.ks_eastmoney_fundamental_api import Indicator, symbol_sub_exchange2exchange
     from ks_trade_api.utility import extract_vt_symbol
     from ks_trade_api.constant import Exchange, RET_OK
     
@@ -65,11 +65,13 @@ async def test_css_mry(fundamental_api):
                     indicator=indicator,
                     options=f'ReportDate={report_date},N=4,Year={year},PayYear={year},ItemsCode={ItemsCode},TradeDate={report_date}'
                 )
+                real_vt_symbols = symbol_sub_exchange2exchange(config['vt_symbols'], config['sub_exchanges'])
                 for symbol_i, vt_symbol in enumerate(config['vt_symbols']):
+                    
                     if np.isnan(my_df.loc[my_symbols[symbol_i], my_indicator]):
-                        assert_debug(np.isnan(ks_df.loc[vt_symbol, f'{indicator_str}_MRY{date_i}']))
+                        assert_debug(np.isnan(ks_df.loc[real_vt_symbols[symbol_i], f'{indicator_str}_MRY{date_i}']))
                     else:
-                        assert_debug(my_df.loc[my_symbols[symbol_i], my_indicator] == ks_df.loc[vt_symbol, f'{indicator_str}_MRY{date_i}'])
+                        assert_debug(my_df.loc[my_symbols[symbol_i], my_indicator] == ks_df.loc[real_vt_symbols[symbol_i], f'{indicator_str}_MRY{date_i}'])
         print('pass√')
 
         # print(res[1])
