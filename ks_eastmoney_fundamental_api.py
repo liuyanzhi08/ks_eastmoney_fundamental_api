@@ -5,11 +5,14 @@ from pandas import DataFrame
 from datetime import datetime, timedelta
 from dateutil.relativedelta import relativedelta
 from ks_trade_api.base_fundamental_api import BaseFundamentalApi
+from ks_trade_api.base_market_api import BaseMarketApi
 from ks_trade_api.utility import extract_vt_symbol, generate_vt_symbol
-from ks_trade_api.constant import Exchange, RET_OK, RET_ERROR, Product, RetCode, SUB_EXCHANGE2EXCHANGE, Currency
+from ks_trade_api.constant import Exchange, RET_OK, RET_ERROR, Product, RetCode, SUB_EXCHANGE2EXCHANGE, Interval, Adjustment, Currency
+from ks_trade_api.object import ContractData, BarData
 from ks_utility.datetimes import get_date_str
 from ks_utility import datetimes
 from ks_utility.datetimes import DATE_FMT
+from typing import List, Union, Optional
 import sys
 import numpy as np
 from decimal import Decimal
@@ -367,6 +370,13 @@ SPOT_SYMBOL_KS2MY = {
 }
 SPOT_SYMBOL_MY2KS = {v:k for k,v in SPOT_SYMBOL_KS2MY.items()}
 
+
+INTERVAL_MY2KS: dict = {
+    Interval.DAILY: 1,
+    Interval.WEEK: 2,
+    Interval.MONTH: 3
+}
+
 class CtrMethod(Enum):
     FundIHolderStockDetailInfo = 'FundIHolderStockDetailInfo'
 
@@ -378,28 +388,28 @@ def extract_my_symbol(my_symbol):
         exchange = np.nan
     return '.'.join(items[:-1]), exchange
 
-def symbol_ks2my(vt_symbol: str, sub_exchange: Exchange = None):
+def symbol_ks2my(vt_symbol: str):
     if not vt_symbol:
         return ''
     symbol, ks_exchange = extract_vt_symbol(vt_symbol)
     symbol = symbol.replace('.', '_')
     
+    # todo!!! 没有兼容期货SyncFutures
     # 把KS期货的代码转为东财的标准格式
-    if sub_exchange in [Exchange.SHFE, Exchange.DCE, Exchange.CZCE, Exchange.GFEX, Exchange.INE, Exchange.CFFEX]:
-        suffix = 'M' if sub_exchange in [Exchange.INE, Exchange.CFFEX, Exchange.GFEX] else '0'
-        if symbol[-2:] in ['L8']:
-            symbol = symbol[:-2] + suffix
-        symbol = symbol
+    # if sub_exchange in [Exchange.SHFE, Exchange.DCE, Exchange.CZCE, Exchange.GFEX, Exchange.INE, Exchange.CFFEX]:
+    #     suffix = 'M' if sub_exchange in [Exchange.INE, Exchange.CFFEX, Exchange.GFEX] else '0'
+    #     if symbol[-2:] in ['L8']:
+    #         symbol = symbol[:-2] + suffix
+    #     symbol = symbol
     
     # 现货属于edb，只有id没有交易所后缀
     if ks_exchange in [Exchange.OTC]:
         symbol = SPOT_SYMBOL_KS2MY.get(symbol, symbol)
         return symbol
     
-    if not sub_exchange:
-        my_symbol = generate_vt_symbol(symbol, ks_exchange)
-    else:
-        my_symbol = generate_vt_symbol(symbol, EXCHANGE_KS2MY.get(sub_exchange))
+    my_exchange = EXCHANGE_KS2MY.get(ks_exchange)
+    
+    my_symbol = generate_vt_symbol(symbol, my_exchange)
     return my_symbol
 
 def symbol_my2ks(my_symbol: str):
@@ -419,7 +429,7 @@ def symbol_my2ks(my_symbol: str):
             date = 'L8'
         symbol = f'{alphabet.upper()}{date}'
     
-    return generate_vt_symbol(symbol, SUB_EXCHANGE2EXCHANGE.get(EXCHANGE_MY2KS.get(my_exchange, Exchange.UNKNOW)))
+    return generate_vt_symbol(symbol, EXCHANGE_MY2KS.get(my_exchange, Exchange.UNKNOW))
 
 def symbol_my2sub_exchange(my_symbol: str):
     if not my_symbol:
@@ -451,14 +461,15 @@ def clean_group(indicators: list[str] = [], n: int = 3):
     return fn
 
 
-class KsEastmoneyFundamentalApi(BaseFundamentalApi):
+class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
     gateway_name: str = "KS_EASTMONEY_FUNDAMENTAL"
 
     def __init__(self, setting: dict):
         dd_secret = setting.get('dd_secret')
         dd_token = setting.get('dd_token')
         gateway_name = setting.get('gateway_name', self.gateway_name)
-        super().__init__(gateway_name=gateway_name, dd_secret=dd_secret, dd_token=dd_token)
+        BaseFundamentalApi.__init__(self, gateway_name=gateway_name, dd_secret=dd_secret, dd_token=dd_token)
+        BaseMarketApi.__init__(self, gateway_name=gateway_name, dd_secret=dd_secret, dd_token=dd_token, setting=setting)
 
         self.setting = setting
         self.login()
@@ -652,11 +663,10 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
             pukeycode = EXCHANGE_PRODUCT2PUKEYCODE.get(f'{exchange.name}.{product.name}')
             df = c.sector(pukeycode, tradedate, options)
             df['vt_symbol'] = df['SECUCODE'].transform(symbol_my2ks)
-            df['sub_exchange'] = df['SECUCODE'].transform(symbol_my2sub_exchange)
             df['name'] = df['SECURITYSHORTNAME']
             df['product'] = product.name
 
-            all_df = pd.concat([all_df, df[['vt_symbol', 'name', 'sub_exchange', 'product']]], ignore_index=True)
+            all_df = pd.concat([all_df, df[['vt_symbol', 'name', 'product']]], ignore_index=True)
             
         # 如果是期货，需要增加中金所支持，东财的主力连续期货只有商品期货
         # if Product.FUTURES in products:
@@ -705,7 +715,7 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
         return df
     
     def csd(self, vt_symbols: list[str], indicators: str = '', start: str = '', end: str = '', options: str = '', sub_exchanges: list[str] = []) -> tuple[RetCode, pd.DataFrame]:
-        my_symbols = [symbol_ks2my(x, Exchange(sub_exchanges[i]) if len(sub_exchanges) and sub_exchanges[i] else None) for i,x in enumerate(vt_symbols)]
+        my_symbols = [symbol_ks2my(x) for x in vt_symbols]
         
         # 默认pandas返回
         if not 'IsPandas' in options:
@@ -718,6 +728,7 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
         rename_columns = {x: INDICATORS_MY2KS[x] for x in df.columns if x in INDICATORS_MY2KS}
         df.rename(columns=rename_columns, inplace=True)
         df.drop(columns=['CODES', 'DATES'], inplace=True)
+        df = df.loc[df.close.first_valid_index():]
         return df
     
     def edb(self, vt_symbols: list[str], options: str = '', sub_exchanges: list[str] = []) -> tuple[RetCode, pd.DataFrame]:
@@ -748,7 +759,48 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi):
         df.loc[df.symbol.isin(['SHL6']), 'RESULT'] = df[df.symbol.isin(['SHL6'])]['RESULT'] / 0.32
         
         return df
-        
+    
+    # 获取静态信息 # todo! ks_trader_wrapper中使用到df=False要修正那边
+    def query_contracts(
+            self,
+            vt_symbols: Optional[List[str]] = None,
+            exchanges: Optional[list[Exchange]] = None,
+            products: Optional[List[Product]] = None,
+            df: bool = True
+        ) -> tuple[RetCode, Union[list[ContractData], DataFrame]]:
+        all_df = pd.DataFrame()
+        for exchange in exchanges:
+            ret, df = self.sector(exchange=exchange, products=products)
+            if ret == RET_ERROR:
+                return RET_ERROR, df
+            if vt_symbols:
+                df = df[df.vt_symbol.isin(vt_symbols)]
+            all_df = pd.concat([all_df, df])
+        return RET_OK, all_df
+    
+    # todo 这里默认先不管是不是df都返回df，后续在处理非df 
+    def query_history(
+            self,
+            vt_symbol: str,
+            start: datetime,
+            end: datetime,
+            interval: Interval,
+            adjustment: Adjustment,
+            df: bool = True,
+            extended_time: bool = False
+    ) ->  tuple[RetCode, DataFrame]:
+        """
+        Query bar history data.
+        """
+        period = INTERVAL_MY2KS.get(interval)
+        df = self.csd(
+            vt_symbols=[vt_symbol],
+            indicators='OPEN,HIGH,LOW,CLOSE,VOLUME,AMOUNT,TURN',
+            start=start.strftime(DATE_FMT),
+            end=end.strftime(DATE_FMT),
+            options=f'period={period}'
+        )
+        return RET_OK, df
 
     # 关闭上下文连接
     def close(self):
