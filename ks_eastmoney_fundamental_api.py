@@ -68,6 +68,7 @@ class Indicator(Enum):
     CIRCULATEMV = 'CIRCULATEMV' # 流通市值
     PE = 'PE' # 市盈率
     PETTM = 'PETTM' # PETTM
+    ROETTM = 'ROETTM' # ROETTM
     PB = 'PB' # 市净率
     YOYOR = 'YOYOR' # 营业收入同比增长率(Year-over-Year Operating Revenue)
     YOYNI = 'YOYNI' # 净利润同步增长率(Year-over-Year Net Income)
