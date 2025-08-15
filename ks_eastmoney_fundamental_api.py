@@ -45,6 +45,7 @@ class Params(Enum):
     CurType = 'CurType'
     TtmType = 'TtmType'
     FundCode = 'FundCode'
+    StartDate = 'StartDate'
     EndDate = 'EndDate'
     
 # 我们的标准字段
@@ -94,6 +95,8 @@ class CtrIndicator(Enum):
     SECUCODE = 'SECUCODE' # 股票代码
     SECUNAME = 'SECUNAME' # 股票名称
     MVRATIO = 'MVRATIO' # 股票持仓市值占比
+    MARGINBALANCE = 'MARGINBALANCE'  # 两融余额
+    MARGINARATIO = 'MARGINARATIO'  # 两融占比
 
 class MyCurrency(Enum):
     CNY = 2
@@ -117,6 +120,8 @@ class MyExchange(Enum):
     GFE = 'GFE'
     INE = 'INE'
     CFE = 'CFE'
+
+    EI = 'EI'  # 东财指数
     
     GI = 'GI' # 全球指数
 
@@ -133,6 +138,7 @@ EXCHANGE2MY_CURRENCY = {
     Exchange.NYSE: MyCurrency.USD,
     Exchange.NASDAQ: MyCurrency.USD,
     
+    Exchange.EM: MyCurrency.CNY,
     Exchange.GI: MyCurrency.USD # todo!!! 并不是所有GI都是美元
 }
 
@@ -162,6 +168,7 @@ EXCHANGE_MY2KS = {
     MyExchange.INE: Exchange.INE,
     MyExchange.CFE: Exchange.CFFEX,
     
+    MyExchange.EI: Exchange.EM,
     MyExchange.GI: Exchange.GI
 }
 
@@ -236,7 +243,20 @@ INDICATORS_KS2MY = {
     MarketIndicator.open_interest.name: 'HQOI'
 }
 
-INDICATORS_MY2KS = {v:'.'.join(k.split('.')[:-1]) if '.' in k else k for k,v in INDICATORS_KS2MY.items()}
+# TODO
+# 东财不同类型标的的指标名未统一，因此需要分开处理
+# 权益（Product.Equity）使用 INDICATORS_MY2KS
+# 指数（Product.Index）使用 INDICATORS_MY2KS_V2
+# 后续给映射表加上标的类型属性后再合并
+INDICATORS_KS2MY_V2 = {
+    'CIRCULATEMV.CNSE': 'FREELIQMV',
+    'PB.CNSE': 'PBNEW',
+    'PB_MEDIAN.CNSE': 'MVPBNEW',
+    'PE_MEDIAN.CNSE': 'MVPETTM',
+}
+
+INDICATORS_MY2KS = {v: '.'.join(k.split('.')[:-1]) if '.' in k else k \
+                    for k, v in (INDICATORS_KS2MY | INDICATORS_KS2MY_V2).items()}
 
 EXCHANGE_PRODUCT2PUKEYCODE = {
     'CNSE.EQUITY': '001071',
@@ -249,7 +269,7 @@ EXCHANGE_PRODUCT2PUKEYCODE = {
     
     'CNFE.FUTURES': '715001',
     
-    'CNSE.INDEX': '905009001', # todo! 这里用了中证的规模指数，并不是所有A股指数
+    'CNSE.INDEX': '905002001,905009001,905017018',  # 分别为上证综合指数、中证规模指数、东财市场指数
     'INDEX.INDEX': '905013008', # todo! 这里用了全球重要指数，并不是所有A股指数
 }
 
@@ -389,6 +409,7 @@ INTERVAL_MY2KS: dict = {
 
 class CtrMethod(Enum):
     FundIHolderStockDetailInfo = 'FundIHolderStockDetailInfo'
+    MarginMarketInfoNew = 'MarginMarketInfoNew'
 
 def extract_my_symbol(my_symbol):
     items = my_symbol.split(".")
@@ -523,10 +544,11 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
         loginResult = c.start(startoptions, '')
         self.log(loginResult, '登录结果')
 
-    def _normalization_indicators_input(self, indicators: str, exchange: Exchange):
+    def _normalization_indicators_input(self, indicators: str, exchange: Exchange, product: Product):
         indicators_list = indicators.split(',')
         top_exchange = SUB_EXCHANGE2EXCHANGE.get(exchange)
-        indicators_new = [INDICATORS_KS2MY.get(f'{x}.{top_exchange.value}', x) for x in indicators_list if INDICATORS_KS2MY.get(f'{x}.{top_exchange.value}', x)]
+        mapping = INDICATORS_KS2MY if product == Product.EQUITY else INDICATORS_KS2MY_V2  # TODO 股票使用旧的映射表，指数使用新的映射表，后续合并
+        indicators_new = [mapping.get(f'{x}.{top_exchange.value}', x) for x in indicators_list if mapping.get(f'{x}.{top_exchange.value}', x)]
         return ','.join(indicators_new)
     
     def _normalization_indicators_output(self, df: DataFrame):
@@ -535,13 +557,13 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
 
     # 暂时不支持跨市场多标的，使用第一个表的市场来决定所有标的的市场
     # sub_exchange是用来做美股区分，东财
-    def css(self, vt_symbols: list[str], indicators: str = '', options: str = '', sub_exchanges: list[str] = []) -> tuple[RetCode, pd.DataFrame]:
+    def css(self, vt_symbols: list[str], indicators: str = '', options: str = '', sub_exchanges: list[str] = [], product: Product = Product.EQUITY) -> tuple[RetCode, pd.DataFrame]:
         if not vt_symbols:
             return None
         
         _indicators = indicators
         symbol, exchange = extract_vt_symbol(vt_symbols[0])
-        indicators = self._normalization_indicators_input(indicators, exchange)
+        indicators = self._normalization_indicators_input(indicators, exchange, product)
 
         # 默认pandas返回
         if not 'IsPandas' in options:
@@ -714,7 +736,12 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
             pukeycode = EXCHANGE_PRODUCT2PUKEYCODE.get(f'{exchange.name}.{product.name}')
             if not pukeycode:
                 continue
-            df = c.sector(pukeycode, tradedate, options)
+            pukeycode = pukeycode.split(',')
+            df_list = []
+            for cur_code in pukeycode:
+                df = c.sector(cur_code, tradedate, options)
+                df_list.append(df)
+            df = pd.concat(df_list)
             df['vt_symbol'] = df['SECUCODE'].transform(symbol_my2ks)
             df['name'] = df['SECURITYSHORTNAME']
             df['product'] = product.name
@@ -735,7 +762,7 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
             
         return RET_OK, all_df
     
-    def ctr(self, method: str, indicators: list[str], options: str = ''):
+    def ctr(self, method: str, indicators: str, options: str = ''):
         try:
             CtrMethod(method)
         except:
@@ -765,7 +792,8 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
         if isinstance(df, c.EmQuantData) and df.ErrorCode in [0, 10000009]:
             raise Exception(str(df))
         
-        df['vt_symbol'] = df['SECUCODE'].transform(symbol_my2ks)
+        if 'SECUCODE' in df.columns:
+            df['vt_symbol'] = df['SECUCODE'].transform(symbol_my2ks)
         
         return df
     
