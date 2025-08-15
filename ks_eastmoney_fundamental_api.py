@@ -119,6 +119,8 @@ class MyExchange(Enum):
     CFE = 'CFE'
     
     GI = 'GI' # 全球指数
+    CSI = 'CSI' # 中证指数
+    HI = 'HI'
 
 EXCHANGE2MY_CURRENCY = {
     Exchange.CNSE: MyCurrency.CNY,
@@ -721,7 +723,11 @@ class KsEastmoneyFundamentalApi(BaseFundamentalApi, BaseMarketApi):
             df['min_volume'] = 1
             df['size'] = 1
 
-            all_df = pd.concat([all_df, df[['vt_symbol', 'name', 'product', 'min_volume', 'size']]], ignore_index=True)
+            df[['symbol', 'sub_exchange']] = df['SECUCODE'].apply(lambda x: pd.Series(extract_my_symbol(x)))
+            df['sub_exchange'] = df['sub_exchange'].transform(lambda x: EXCHANGE_MY2KS.get(x, Exchange.UNKNOW))
+            df['sub_exchange'] = df['sub_exchange'].transform(lambda x: x.value)
+
+            all_df = pd.concat([all_df, df[['vt_symbol', 'sub_exchange', 'name', 'product', 'min_volume', 'size']]], ignore_index=True)
             
         # 如果是期货，需要增加中金所支持，东财的主力连续期货只有商品期货
         # if Product.FUTURES in products:
